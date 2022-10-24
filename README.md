@@ -1,6 +1,7 @@
-Instructions:
+<h1>Instructions</h1>
 
-// Create the API key (you only need to do this once ever)
+<h2>Initial Setup - do once</h2>
+Create the API key (you only need to do this once ever)
 1. Open a new terminal window
 2. Point to this directory
 3. Execute the command "node utils/generateKeys.js"
@@ -11,7 +12,7 @@ Instructions:
 8. Once available, copy/paste the API Access Key from the Client Dashboard into a new line in keys.txt
 9. Open the index.js file and fill "const ANCHORAGE_API_KEY" with the API Access Key and fill "const secretKeyHex" with the value from keys.txt indicated as the secret key hex
 
-
+<h2>Continuous Setup - do for each payroll</h2>
 // Prepare the withdrawals
 1. Make a copy of withdrawals.csv from Google Sheets: https://docs.google.com/spreadsheets/d/1hh2v0BuGXWKWcnju8aJ7sL_V5m5zhBHnXx6NkJXKFDg/edit#gid=0
 2. Fill out spreadsheet
