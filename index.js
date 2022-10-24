@@ -5,9 +5,9 @@ import fs from 'fs';
 import rl from 'readline';
 // import generateKeys from './utils/generateKeys.js';
 
-const ANCHORAGE_BASE_URL = 'https://api.anchorage-staging.com';
-const ANCHORAGE_API_KEY = '9ec29baac776f2c7d6e2eeef8ea1dc3eea527ce4fb21b830eb7465f22c0a7e59';
-const secretKeyHex = '66d0cff555b86783a24111346d2ec4ee52044d1e631b608c82c4dddf9fabe8d78093c0a6f41358e77a27683b5a78a7b2eee7abf1a0b46fcca9c228f413b3e805';
+const ANCHORAGE_BASE_URL = 'https://api.anchorage.com';
+const ANCHORAGE_API_KEY = '';
+const secretKeyHex = '';
 
 const hexStringToByteArray = (hexString) => {
     if (hexString.length % 2 !== 0) {
