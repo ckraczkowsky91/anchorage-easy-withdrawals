@@ -1,1 +1,0 @@
-* Use this file to store your key information locally for reference during configuration *
