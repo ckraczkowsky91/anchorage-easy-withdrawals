@@ -3,12 +3,12 @@ import nacl from "tweetnacl";
 import util from "tweetnacl-util";
 import fs from "fs";
 import { parse } from "csv-parse/sync";
-import { stringify } from "csv-stringify";
+import { stringify } from "csv-stringify/sync";
 
-import hexStringToByteArray from './utils/hexStringToByteArray';
-import validateCsv from './utils/validateCsv';
+import hexStringToByteArray from "./utils/hexStringToByteArray.js";
+import validateCsv from "./utils/validateCsv.js";
 
-const ANCHORAGE_BASE_URL = "https://api.anchorage.com";
+const ANCHORAGE_BASE_URL = "https://api.anchorage-development.com";
 const PLACEHOLDER_API_KEY = "REPLACE_WITH_API_KEY";
 const TRANSACTION_CHECK_INTERVAL = 30000;
 const failedTransactions = [];
@@ -153,10 +153,6 @@ const processTransactions = async (
       secretKeyHex
     );
 
-    if (!newTransactionId) {
-      throw "Error creating new transaction";
-    }
-
     await checkTransactionStatus(newTransactionId, transaction, anchorageApiKey);
   }
 };
@@ -166,16 +162,17 @@ const main = async () => {
     keyFile = fs.readFileSync("keys.json");
   } catch (e) {
     console.log("Please run node ./generateKeys.js before running this file");
-    throw e;
+    return;
   }
 
   const keyObj = JSON.parse(keyFile);
 
   if (!keyObj.anchorageApiKey || keyObj.anchorageApiKey === PLACEHOLDER_API_KEY) {
-    throw "Please generate an anchorage API key as per instructions and add it to keys.json";
+    console.log("Please generate an anchorage API key as per instructions and add it to keys.json");
+    return;
   }
 
-  const { anchorageApiKey, secretKeyHex } = keyObj.anchorageApiKey;
+  const { anchorageApiKey, secretKeyHex } = keyObj;
 
   console.log("Starting to process transactions...");
 
@@ -205,7 +202,7 @@ const main = async () => {
     console.log(
       "There was an issue reading the withdrawal.csv, please make sure the headers and data is correct"
     );
-    throw e;
+    console.log(e);
   }
 };
 

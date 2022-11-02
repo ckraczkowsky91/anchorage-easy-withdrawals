@@ -12,7 +12,7 @@ const COLUMNS = [
 ];
 
 const validateCsv = (transactions) => {
-  if (!transactionToInspect || !Object.keys(transactionToInspect).length) {
+  if (!transactions[0] || !Object.keys(transactions[0]).length) {
     throw "CSV File is empty";
   }
 
@@ -28,7 +28,7 @@ const validateCsv = (transactions) => {
 
   if (errorsFound.length > 0) {
     throw errorsFound.join('\n');
-  }
+  } 
 };
 
 export default validateCsv;
