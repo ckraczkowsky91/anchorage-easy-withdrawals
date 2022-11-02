@@ -77,26 +77,6 @@ const checkTransactionStatus = async (transactionId, transactionDetails, anchora
   }
 };
 
-const processTransactions = async (
-  transactions,
-  anchorageApiKey,
-  secretKeyHex
-) => {
-  for (const transaction of transactions) {
-    const newTransactionId = await send(
-      transaction,
-      anchorageApiKey,
-      secretKeyHex
-    );
-
-    if (!newTransactionId) {
-      throw "Error creating new transaction";
-    }
-
-    await checkTransactionStatus(newTransactionId, transaction, anchorageApiKey);
-  }
-};
-
 // sends withdrawal to Anchorage API
 const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
   const secretKey = hexStringToByteArray(secretKeyHex);
@@ -158,6 +138,26 @@ const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
       errorType: result.errorType,
       errorMessage: result.message,
     });
+  }
+};
+
+const processTransactions = async (
+  transactions,
+  anchorageApiKey,
+  secretKeyHex
+) => {
+  for (const transaction of transactions) {
+    const newTransactionId = await send(
+      transaction,
+      anchorageApiKey,
+      secretKeyHex
+    );
+
+    if (!newTransactionId) {
+      throw "Error creating new transaction";
+    }
+
+    await checkTransactionStatus(newTransactionId, transaction, anchorageApiKey);
   }
 };
 
