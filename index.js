@@ -2,63 +2,33 @@ import fetch from "node-fetch";
 import nacl from "tweetnacl";
 import util from "tweetnacl-util";
 import fs from "fs";
-import rl from "readline";
+import { parse } from "csv-parse/sync";
+import { stringify } from "csv-stringify";
+
+import hexStringToByteArray from './utils/hexStringToByteArray';
+import validateCsv from './utils/validateCsv';
 
 const ANCHORAGE_BASE_URL = "https://api.anchorage.com";
 const PLACEHOLDER_API_KEY = "REPLACE_WITH_API_KEY";
 const TRANSACTION_CHECK_INTERVAL = 30000;
+const failedTransactions = [];
 
 let keyFile;
 
-try {
-  keyFile = fs.readFileSync("keys.json");
-} catch (e) {
-  console.log("Please run node ./generateKeys.js before running this file");
-  throw e;
-}
+const recheckTransaction = async (transactionId, transactionDetails) => {
+  console.log("Waiting 30s then checking transaction status again...");
+  // Set timeout doesn't return a promise, we need to wrap it in one
+  await new Promise((resolve) => {
+    setTimeout(resolve(), TRANSACTION_CHECK_INTERVAL);
+  });
 
-const keyObj = JSON.parse(keyFile);
-
-if (!keyObj.anchorageApiKey || keyObj.anchorageApiKey === PLACEHOLDER_API_KEY) {
-  throw "Please generate an anchorage API key as per instructions and add it to keys.json";
-}
-
-const anchorageApiKey = keyObj.anchorageApiKey;
-const secretKeyHex = keyObj.secretKeyHex;
-
-const hexStringToByteArray = (hexString) => {
-  if (hexString.length % 2 !== 0) {
-    throw "Must have an even number of hex digits to convert to bytes";
-  }
-  var numBytes = hexString.length / 2;
-  var byteArray = new Uint8Array(numBytes);
-  for (var i = 0; i < numBytes; i++) {
-    byteArray[i] = parseInt(hexString.substr(i * 2, 2), 16);
-  }
-  return byteArray;
+  await checkTransactionStatus(transactionId, transactionDetails);
 };
-
-const transactions = [];
-
-// read data in from a .csv
-const reader = rl.createInterface({
-  input: fs.createReadStream("withdrawals.csv"),
-});
-
-reader.on("line", (row) => {
-  transactions.push(row.split(","));
-});
-
-reader.on("close", () => {
-  processTransactions();
-});
-
-console.log("Starting to process transactions...");
 
 // create withdrawal from first entry
 // wait for that entry to move to complete or fail
 // go to next entry
-const checkTransactionStatus = async (transactionId) => {
+const checkTransactionStatus = async (transactionId, transactionDetails, anchorageApiKey) => {
   const path = "/v2/transactions/" + transactionId;
   const response = await fetch(`${ANCHORAGE_BASE_URL}${path}`, {
     method: "GET",
@@ -73,92 +43,84 @@ const checkTransactionStatus = async (transactionId) => {
   const result = await response.json().catch((error) => {
     console.log("transactions-result-error: ", error);
   });
-  
+
   if (!result) {
     console.log("error with result");
-    console.log("Waiting 30s then checking transaction status again...");
-    // Set timeout doesn't return a promise, we need to wrap it in one
-    await new Promise((resolve) => {
-      setTimeout(resolve(), TRANSACTION_CHECK_INTERVAL);
-    });
-
-    await checkTransactionStatus(transactionId);
+    await recheckTransaction(transactionId);    
   } else if (result.errorType) {
     console.log("error: ", result.message);
   } else {
     console.log(`The status of transaction ${transactionId}: ${result.data.status}`);
-    console.log("Waiting 30s then checking transaction status again...");
 
-    // Set timeout doesn't return a promise, we need to wrap it in one
-    await new Promise((resolve) => {
-      setTimeout(resolve(), TRANSACTION_CHECK_INTERVAL);
-    });
+    if (
+      result.data.status !== "INPROGRESS" ||
+      result.data.status !== "NEEDS_APPROVAL"
+    ) {
+      if (result.data.status === "FAILURE") {
+        failedTransactions.push({
+          ...transactionDetails,
+          errorType: "Failure",
+          errorMessage: "The transaction has failed",
+        });
+      } else if (result.data.status === "REJECTED") {
+        failedTransactions.push({
+          ...transactionDetails,
+          errorType: "Rejeceted",
+          errorMessage: "The transaction was rejected",
+        });
+      }
 
-    await checkTransactionStatus(transactionId);
+      return;
+    }
+
+    await recheckTransaction(transactionId);
   }
 };
 
-// puts together info for a withdrawal and sends
-const createWithdrawal = async (transaction) => {
-  var sendingVaultId = transaction[0];
-  var assetType = transaction[1];
-  var destination = transaction[2];
-  var amount = transaction[3];
-  var destinationType = transaction[4];
-  var institutionName = transaction[5];
-  var institutionCountry = transaction[6];
-  var recipientType = transaction[7];
-  var recipientName = transaction[8];
-  var recipientCountry = transaction[9];
+const processTransactions = async (
+  transactions,
+  anchorageApiKey,
+  secretKeyHex
+) => {
+  for (const transaction of transactions) {
+    const newTransactionId = await send(
+      transaction,
+      anchorageApiKey,
+      secretKeyHex
+    );
 
-  return await send(
+    if (!newTransactionId) {
+      throw "Error creating new transaction";
+    }
+
+    await checkTransactionStatus(newTransactionId, transaction, anchorageApiKey);
+  }
+};
+
+// sends withdrawal to Anchorage API
+const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
+  const secretKey = hexStringToByteArray(secretKeyHex);
+  const timestamp = Math.ceil(new Date().getTime() / 1000).toString();
+  const method = "POST";
+  const path = "/v2/transactions/withdrawal";
+  const {
     sendingVaultId,
     assetType,
-    destination,
+    destinationAddress,
     amount,
     destinationType,
     institutionName,
     institutionCountry,
     recipientType,
     recipientName,
-    recipientCountry
-  );
-};
+    recipientCountry,
+  } = transactionParams;
 
-const processTransactions = async () => {
-  for (const transaction of transactions) {
-    const newTransactionId = await createWithdrawal(transaction);
-
-    if (!newTransactionId) {
-      throw "Error creating new transaction";
-    }
-
-    await checkTransactionStatus(newTransactionId);
-  }
-};
-
-// sends withdrawal to Anchorage API
-const send = async (
-  sendingVaultId,
-  assetType,
-  destination,
-  amount,
-  destinationType,
-  institutionName,
-  institutionCountry,
-  recipientType,
-  recipientName,
-  recipientCountry
-) => {
-  const secretKey = hexStringToByteArray(secretKeyHex);
-  const timestamp = Math.ceil(new Date().getTime() / 1000).toString();
-  const method = "POST";
-  const path = "/v2/transactions/withdrawal";
   const requestData = {
     sendingVaultId,
     amount,
     assetType,
-    destinationAddress: destination,
+    destinationAddress,
     amlQuestionnaire: {
       destinationType,
       institutionName,
@@ -185,14 +147,67 @@ const send = async (
   });
 
   const result = await response.json();
-  
+
   if (!result.errorType) {
     transactionId = await result.data.withdrawalId;
     console.log(`New transaction ${transactionId} created!`);
     return transactionId;
   } else {
-    console.log(
-      "error: There was an error creating this transaction, check that no transactions are currently processing for this vault"
-    );
+    failedTransactions.push({
+      ...transactionParams,
+      errorType: result.errorType,
+      errorMessage: result.message,
+    });
   }
 };
+
+const main = async () => {
+  try {
+    keyFile = fs.readFileSync("keys.json");
+  } catch (e) {
+    console.log("Please run node ./generateKeys.js before running this file");
+    throw e;
+  }
+
+  const keyObj = JSON.parse(keyFile);
+
+  if (!keyObj.anchorageApiKey || keyObj.anchorageApiKey === PLACEHOLDER_API_KEY) {
+    throw "Please generate an anchorage API key as per instructions and add it to keys.json";
+  }
+
+  const { anchorageApiKey, secretKeyHex } = keyObj.anchorageApiKey;
+
+  console.log("Starting to process transactions...");
+
+  try {
+    const transactions = parse(fs.readFileSync("withdrawals.csv"), {
+      columns: true,
+    });
+
+    validateCsv(transactions);
+
+    await processTransactions(transactions, anchorageApiKey, secretKeyHex);
+
+    if (failedTransactions.length > 0) {
+      const failedTransactionStr = stringify(failedTransactions, {
+        header: true,
+      });
+
+      fs.writeFileSync("failedTransactions.csv", failedTransactionStr);
+
+      console.log(
+        "Some transactions failed, please check failedTransactions.csv for a list of failed transactions and their errors"
+      );
+    } else {
+      console.log("All transactions were successfully executed!");
+    }
+  } catch (e) {
+    console.log(
+      "There was an issue reading the withdrawal.csv, please make sure the headers and data is correct"
+    );
+    throw e;
+  }
+};
+
+// Kick it off
+main();
