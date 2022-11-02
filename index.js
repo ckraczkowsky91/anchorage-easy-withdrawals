@@ -152,8 +152,10 @@ const processTransactions = async (
       anchorageApiKey,
       secretKeyHex
     );
-
-    await checkTransactionStatus(newTransactionId, transaction, anchorageApiKey);
+    
+    if (newTransactionId) {
+      await checkTransactionStatus(newTransactionId, transaction, anchorageApiKey);
+    }
   }
 };
 
