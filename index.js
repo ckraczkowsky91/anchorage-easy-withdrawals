@@ -76,6 +76,13 @@ const checkTransactionStatus = async (transactionId) => {
   
   if (!result) {
     console.log("error with result");
+    console.log("Waiting 30s then checking transaction status again...");
+    // Set timeout doesn't return a promise, we need to wrap it in one
+    await new Promise((resolve) => {
+      setTimeout(resolve(), TRANSACTION_CHECK_INTERVAL);
+    });
+
+    await checkTransactionStatus(transactionId);
   } else if (result.errorType) {
     console.log("error: ", result.message);
   } else {
@@ -148,17 +155,17 @@ const send = async (
   const method = "POST";
   const path = "/v2/transactions/withdrawal";
   const requestData = {
-    sendingVaultId: sendingVaultId,
-    amount: amount,
-    assetType: assetType,
+    sendingVaultId,
+    amount,
+    assetType,
     destinationAddress: destination,
     amlQuestionnaire: {
-      destinationType: destinationType,
-      institutionName: institutionName,
-      institutionCountry: institutionCountry,
-      recipientType: recipientType,
-      recipientName: recipientName,
-      recipientCountry: recipientCountry,
+      destinationType,
+      institutionName,
+      institutionCountry,
+      recipientType,
+      recipientName,
+      recipientCountry,
     },
   };
   const requestBody = JSON.stringify(requestData);
