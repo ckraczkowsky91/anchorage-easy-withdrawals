@@ -10,13 +10,12 @@
 <h3>Create the API key</h3>
 
 1. In the terminal window from the previous section, execute the command "cd anchorage-easy-withdrawals/"
-3. The execute the command "node utils/generateKeys.js"
-4. Save the results to keys.txt, you'll want to refer to this later
+3. The execute the command "node generateKeys.js"
+4. Outputs to a file called keys.json
 5. Open the Client Dashboard and navigate to the API 2.0 section
 6. Click on "Create API Key" (it is assumed that you already have a Permission Group with Initiate Withdrawal and Read permissions)
 7. Fill in requested information, when you get to "Add public key" go to keys.txt and copy/paste the value indicated as the public key
-8. Once available, copy/paste the API Access Key from the Client Dashboard into a new line in keys.txt
-9. Open the index.js file and fill "const ANCHORAGE_API_KEY" with the API Access Key and fill "const secretKeyHex" with the value from keys.txt indicated as the secret key hex
+8. Once available, copy/paste the API Access Key from the Client Dashboard into the anchorageApiKey property in keys.json. The default value should be "REPLACE_WITH_API_KEY"
 
 <h2>Continuous Setup - do for each payroll</h2>
 
@@ -34,3 +33,14 @@
 3. Make sure that there are no existing transactions for this vault
 3. Execute the command "node index.js"
 4. Allow the script to run, do not let the machine go to sleep until all transactions have been submitted
+
+Please note that only 1 withdrawal can be run at once, that means you need to get approval for a withdrawal before the next one can be kicked off. This is a limitation with our APIs and for now cannot be worked around.
+
+<h3>Error Handling</h3>
+
+The application runs a few checks to make sure input data is correct and that transactions have gone through properly. 
+
+Here is a list of different errors the application will handle:
+- Checks to make sure you set an API key, if it doesn't find a keys.json file or that the anchorageApiKey property is the same value it will let you know
+- Checks to make sure your withdrawal csv file is there and valid, if any line is missing data it will let you know what it is missing and which transaction has the problem
+- If the API fails to create a withdrawal it will print out any failed transaction into a failedWithdrawals.csv with the parameters along with two extra columns with error type and error message. You should be able to copy these back into withdrawals.csv to re-run them.
