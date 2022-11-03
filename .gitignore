@@ -3,3 +3,4 @@ keys.txt
 keys.json
 failedTransactions.csv
 withdrawals.csv
+successfulTransactions.csv

@@ -12,6 +12,7 @@ const ANCHORAGE_BASE_URL = "https://api.anchorage-development.com";
 const PLACEHOLDER_API_KEY = "REPLACE_WITH_API_KEY";
 const TRANSACTION_CHECK_INTERVAL = 30000;
 const failedTransactions = [];
+const successfulTransactions = [];
 
 let keyFile;
 
@@ -67,8 +68,10 @@ const checkTransactionStatus = async (transactionId, transactionDetails, anchora
           ...transactionDetails,
           errorType: "Rejeceted",
           errorMessage: "The transaction was rejected",
-        });
-      }
+        }) 
+      } else if (result.data.status === "SUCCESS") {
+          successfulTransactions.push(transactionDetails);
+        };
 
       return;
     }
@@ -186,20 +189,25 @@ const main = async () => {
     validateCsv(transactions);
 
     await processTransactions(transactions, anchorageApiKey, secretKeyHex);
+    const failedTransactionStr = stringify(failedTransactions, {
+      header: true,
+    });
+    const successfulTransactionStr = stringify(successfulTransactions, {
+      header: true,
+    });
+
+    fs.writeFileSync("failedTransactions.csv", failedTransactionStr);
+    fs.writeFileSync("successfulTransactions.csv", successfulTransactionStr);
 
     if (failedTransactions.length > 0) {
-      const failedTransactionStr = stringify(failedTransactions, {
-        header: true,
-      });
-
-      fs.writeFileSync("failedTransactions.csv", failedTransactionStr);
-
       console.log(
         "Some transactions failed, please check failedTransactions.csv for a list of failed transactions and their errors"
       );
     } else {
       console.log("All transactions were successfully executed!");
     }
+
+    fs.writeFileSync("withdrawals.csv", "");
   } catch (e) {
     console.log(
       "There was an issue reading the withdrawal.csv, please make sure the headers and data is correct"
