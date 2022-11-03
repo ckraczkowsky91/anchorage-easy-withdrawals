@@ -34,7 +34,10 @@
 3. Execute the command "node index.js"
 4. Allow the script to run, do not let the machine go to sleep until all transactions have been submitted
 
-Please note that only 1 withdrawal can be run at once, that means you need to get approval for a withdrawal before the next one can be kicked off. This is a limitation with our APIs and for now cannot be worked around.
+<h3>Things to Note</h3>
+- Successful transactions will be written to a file called successfulTransactions.csv and failed ones go to fialedTransactions.csv
+- Only 1 withdrawal can be run at once, that means you need to get approval for a withdrawal before the next one can be kicked off. This is a limitation with our APIs and for now cannot be worked around
+- After running the tool, withdrawals.csv will be cleared of all content to prevent accidental re-running of the same transactions
 
 <h3>Error Handling</h3>
 
