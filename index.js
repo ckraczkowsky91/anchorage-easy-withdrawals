@@ -8,7 +8,8 @@ import { stringify } from "csv-stringify/sync";
 import hexStringToByteArray from "./utils/hexStringToByteArray.js";
 import validateCsv from "./utils/validateCsv.js";
 
-const ANCHORAGE_BASE_URL = "https://api.anchorage-development.com";
+// const ANCHORAGE_BASE_URL = "https://api.anchorage-development.com";
+const ANCHORAGE_BASE_URL = "https://api.anchorage.com";
 const PLACEHOLDER_API_KEY = "REPLACE_WITH_API_KEY";
 const SUCCESS_TRANSACTIONS_HEADERS = [
   "sendingVaultId",
@@ -37,8 +38,9 @@ const FAILED_TRANSACTIONS_HEADERS = [
   "errorType",
   "errorMessage",
 ];
+
 const TRANSACTION_CHECK_INTERVAL = 30000;
-const failedWithdrawals = [];
+let withdrawalFailed = false;
 
 let keyFile;
 
@@ -84,6 +86,8 @@ const checkTransactionStatus = async (transactionId, transactionDetails, anchora
       result.data.status !== "NEEDS_APPROVAL"
     ) {
       if (result.data.status === "FAILURE") {
+        withdrawalFailed = true;
+
         const failedWithdrawalStr = stringify([
           {
             ...transactionDetails,
@@ -94,6 +98,8 @@ const checkTransactionStatus = async (transactionId, transactionDetails, anchora
 
         fs.appendFileSync("failedWithdrawals.csv", `\n${failedWithdrawalStr}`);
       } else if (result.data.status === "REJECTED") {
+        withdrawalFailed = true;
+
         const failedWithdrawalStr = stringify([
           {
             ...transactionDetails,
@@ -172,6 +178,8 @@ const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
     console.log(`New transaction ${transactionId} created!`);
     return transactionId;
   } else {
+    withdrawalFailed = true;
+
     const failedWithdrawalStr = stringify([{
       ...transactionParams,
       errorType: result.errorType,
@@ -240,15 +248,15 @@ const main = async () => {
 
     fs.writeFileSync("previousWithdrawals.csv", previousWithdrawalsStr);
 
-    if (failedWithdrawals.length > 0) {
+    fs.writeFileSync("withdrawals.csv", "");
+
+    if (withdrawalFailed) {
       console.log(
         "Some transactions failed, please check failedWithdrawals.csv for a list of failed transactions and their errors"
       );
     } else {
       console.log("All transactions were successfully executed!");
-    }
-
-    fs.writeFileSync("withdrawals.csv", "");
+    }    
   } catch (e) {
     console.log(
       "There was an issue running the application, please check the error below"
