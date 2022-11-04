@@ -38,6 +38,7 @@
 - Successful transactions will be written to a file called successfulTransactions.csv and failed ones go to fialedTransactions.csv
 - Only 1 withdrawal can be run at once, that means you need to get approval for a withdrawal before the next one can be kicked off. This is a limitation with our APIs and for now cannot be worked around
 - After running the tool, withdrawals.csv will be cleared of all content to prevent accidental re-running of the same transactions
+- The last withdrawals ran will be stored in previousWithdrawals.csv
 
 <h3>Error Handling</h3>
 

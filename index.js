@@ -198,6 +198,7 @@ const main = async () => {
 
     fs.writeFileSync("failedTransactions.csv", failedTransactionStr);
     fs.writeFileSync("successfulTransactions.csv", successfulTransactionStr);
+    fs.writeFileSync("previousWithdrawals.csv", transactions);
 
     if (failedTransactions.length > 0) {
       console.log(
