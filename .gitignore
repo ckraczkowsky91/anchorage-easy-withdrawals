@@ -1,6 +1,7 @@
 node_modules
 keys.txt
 keys.json
-failedTransactions.csv
 withdrawals.csv
-successfulTransactions.csv
+failedWithdrawals.csv
+successfulWithdrawals.csv
+previousWithdrawals.csv
