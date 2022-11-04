@@ -132,7 +132,7 @@ const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
   const result = await response.json();
 
   if (!result.errorType) {
-    transactionId = await result.data.withdrawalId;
+    transactionId = await result.data.id;
     console.log(`New transaction ${transactionId} created!`);
     return transactionId;
   } else {
