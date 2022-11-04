@@ -10,20 +10,46 @@ import validateCsv from "./utils/validateCsv.js";
 
 const ANCHORAGE_BASE_URL = "https://api.anchorage-development.com";
 const PLACEHOLDER_API_KEY = "REPLACE_WITH_API_KEY";
+const SUCCESS_TRANSACTIONS_HEADERS = [
+  "sendingVaultId",
+  "assetType",
+  "destinationAddress",
+  "amount",
+  "destinationType",
+  "institutionName",
+  "institutionCountry",
+  "recipientType",
+  "recipientName",
+  "recipientCountry",
+];
+
+const FAILED_TRANSACTIONS_HEADERS = [
+  "sendingVaultId",
+  "assetType",
+  "destinationAddress",
+  "amount",
+  "destinationType",
+  "institutionName",
+  "institutionCountry",
+  "recipientType",
+  "recipientName",
+  "recipientCountry",
+  "errorType",
+  "errorMessage",
+];
 const TRANSACTION_CHECK_INTERVAL = 30000;
 const failedWithdrawals = [];
-const successfulWithdrawals = [];
 
 let keyFile;
 
-const recheckTransaction = async (transactionId, transactionDetails) => {
+const recheckTransaction = async (transactionId, transactionDetails, anchorageApiKey) => {
   console.log("Waiting 30s then checking transaction status again...");
   // Set timeout doesn't return a promise, we need to wrap it in one
   await new Promise((resolve) => {
-    setTimeout(resolve(), TRANSACTION_CHECK_INTERVAL);
+    setTimeout(resolve, TRANSACTION_CHECK_INTERVAL);
   });
 
-  await checkTransactionStatus(transactionId, transactionDetails);
+  return await checkTransactionStatus(transactionId, transactionDetails, anchorageApiKey);
 };
 
 // create withdrawal from first entry
@@ -47,36 +73,46 @@ const checkTransactionStatus = async (transactionId, transactionDetails, anchora
 
   if (!result) {
     console.log("error with result");
-    await recheckTransaction(transactionId);    
+    await recheckTransaction(transactionId, transactionDetails, anchorageApiKey);    
   } else if (result.errorType) {
     console.log("error: ", result.message);
   } else {
     console.log(`The status of transaction ${transactionId}: ${result.data.status}`);
 
     if (
-      result.data.status !== "INPROGRESS" ||
+      result.data.status !== "INPROGRESS" &&
       result.data.status !== "NEEDS_APPROVAL"
     ) {
       if (result.data.status === "FAILURE") {
-        failedWithdrawals.push({
-          ...transactionDetails,
-          errorType: "Failure",
-          errorMessage: "The transaction has failed",
-        });
+        const failedWithdrawalStr = stringify([
+          {
+            ...transactionDetails,
+            errorType: "Failure",
+            errorMessage: "The transaction has failed",
+          },
+        ]);
+
+        fs.appendFileSync("failedWithdrawals.csv", `\n${failedWithdrawalStr}`);
       } else if (result.data.status === "REJECTED") {
-        failedWithdrawals.push({
-          ...transactionDetails,
-          errorType: "Rejeceted",
-          errorMessage: "The transaction was rejected",
-        }) 
+        const failedWithdrawalStr = stringify([
+          {
+            ...transactionDetails,
+            errorType: "Rejeceted",
+            errorMessage: "The transaction was rejected",
+          },
+        ]);
+
+        fs.appendFileSync("failedWithdrawals.csv", `\n${failedWithdrawalStr}`);
       } else if (result.data.status === "SUCCESS") {
-          successfulTransactions.push(transactionDetails);
-        };
+        const successfulWithdrawalStr = stringify([transactionDetails]);
+
+        fs.appendFileSync("successfulWithdrawals.csv", `\n${successfulWithdrawalStr}`);
+      }
 
       return;
     }
 
-    await recheckTransaction(transactionId);
+    return await recheckTransaction(transactionId, transactionDetails, anchorageApiKey);
   }
 };
 
@@ -132,15 +168,17 @@ const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
   const result = await response.json();
 
   if (!result.errorType) {
-    transactionId = await result.data.id;
+    const transactionId = await result.data.withdrawalId;
     console.log(`New transaction ${transactionId} created!`);
     return transactionId;
   } else {
-    failedWithdrawals.push({
+    const failedWithdrawalStr = stringify([{
       ...transactionParams,
       errorType: result.errorType,
       errorMessage: result.message,
-    });
+    }]);
+
+    fs.appendFileSync("failedWithdrawals.csv", `\n${failedWithdrawalStr}`);
   }
 };
 
@@ -188,19 +226,18 @@ const main = async () => {
 
     validateCsv(transactions);
 
+    fs.writeFileSync("successfulWithdrawals.csv", SUCCESS_TRANSACTIONS_HEADERS.join(','));
+    fs.writeFileSync(
+      "failedWithdrawals.csv",
+      FAILED_TRANSACTIONS_HEADERS.join(",")
+    );
+
     await processTransactions(transactions, anchorageApiKey, secretKeyHex);
-    const failedWithdrawalsStr = stringify(failedWithdrawals, {
-      header: true,
-    });
-    const successfulWithdrawalsStr = stringify(successfulWithdrawals, {
-      header: true,
-    });
+
     const previousWithdrawalsStr = stringify(transactions, {
       header: true,
     });
 
-    fs.writeFileSync("failedWithdrawals.csv", failedWithdrawalsStr);
-    fs.writeFileSync("successfulWithdrawals.csv", successfulWithdrawalsStr);
     fs.writeFileSync("previousWithdrawals.csv", previousWithdrawalsStr);
 
     if (failedWithdrawals.length > 0) {
@@ -214,7 +251,7 @@ const main = async () => {
     fs.writeFileSync("withdrawals.csv", "");
   } catch (e) {
     console.log(
-      "There was an issue reading the withdrawal.csv, please make sure the headers and data is correct"
+      "There was an issue running the application, please check the error below"
     );
     console.log(e);
   }
