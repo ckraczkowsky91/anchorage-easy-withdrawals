@@ -11,8 +11,8 @@ import validateCsv from "./utils/validateCsv.js";
 const ANCHORAGE_BASE_URL = "https://api.anchorage-development.com";
 const PLACEHOLDER_API_KEY = "REPLACE_WITH_API_KEY";
 const TRANSACTION_CHECK_INTERVAL = 30000;
-const failedTransactions = [];
-const successfulTransactions = [];
+const failedWithdrawals = [];
+const successfulWithdrawals = [];
 
 let keyFile;
 
@@ -58,13 +58,13 @@ const checkTransactionStatus = async (transactionId, transactionDetails, anchora
       result.data.status !== "NEEDS_APPROVAL"
     ) {
       if (result.data.status === "FAILURE") {
-        failedTransactions.push({
+        failedWithdrawals.push({
           ...transactionDetails,
           errorType: "Failure",
           errorMessage: "The transaction has failed",
         });
       } else if (result.data.status === "REJECTED") {
-        failedTransactions.push({
+        failedWithdrawals.push({
           ...transactionDetails,
           errorType: "Rejeceted",
           errorMessage: "The transaction was rejected",
@@ -136,7 +136,7 @@ const send = async (transactionParams, anchorageApiKey, secretKeyHex) => {
     console.log(`New transaction ${transactionId} created!`);
     return transactionId;
   } else {
-    failedTransactions.push({
+    failedWithdrawals.push({
       ...transactionParams,
       errorType: result.errorType,
       errorMessage: result.message,
@@ -189,20 +189,23 @@ const main = async () => {
     validateCsv(transactions);
 
     await processTransactions(transactions, anchorageApiKey, secretKeyHex);
-    const failedTransactionStr = stringify(failedTransactions, {
+    const failedWithdrawalsStr = stringify(failedWithdrawals, {
       header: true,
     });
-    const successfulTransactionStr = stringify(successfulTransactions, {
+    const successfulWithdrawalsStr = stringify(successfulWithdrawals, {
+      header: true,
+    });
+    const previousWithdrawalsStr = stringify(transactions, {
       header: true,
     });
 
-    fs.writeFileSync("failedTransactions.csv", failedTransactionStr);
-    fs.writeFileSync("successfulTransactions.csv", successfulTransactionStr);
-    fs.writeFileSync("previousWithdrawals.csv", transactions);
+    fs.writeFileSync("failedWithdrawals.csv", failedWithdrawalsStr);
+    fs.writeFileSync("successfulWithdrawals.csv", successfulWithdrawalsStr);
+    fs.writeFileSync("previousWithdrawals.csv", previousWithdrawalsStr);
 
-    if (failedTransactions.length > 0) {
+    if (failedWithdrawals.length > 0) {
       console.log(
-        "Some transactions failed, please check failedTransactions.csv for a list of failed transactions and their errors"
+        "Some transactions failed, please check failedWithdrawals.csv for a list of failed transactions and their errors"
       );
     } else {
       console.log("All transactions were successfully executed!");
